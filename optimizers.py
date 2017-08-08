@@ -359,10 +359,6 @@ if __name__ == "__main__":
     from matplotlib import cm
     from functions import rosenbrock, rosenbrock_jac, beale, beale_jac, quadratic, quadratic_jac, fun_mesh
 
-    # http://cs231n.github.io/neural-networks-3/#sgd
-    # http://www.scipy-lectures.org/advanced/mathematical_optimization/
-    # https://stackoverflow.com/questions/42790280/gradient-descent-optimization-for-multivariate-scalar-functions
-
     x0 = np.array([-2.0, -1.])
 
     fun = rosenbrock
