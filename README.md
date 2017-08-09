@@ -56,7 +56,7 @@ Similarly, the values of the parameters and objective function from all iteratio
 
 A full list of parameters for each optimization method can be found in `optimizers.py`.
 
-See `minimise_rosenbrock.py` for examples on how to use the optimizers in practice.
+See `minimise_beale.py` for examples on how to use the optimizers in practice.
 
 
 ## Credits
