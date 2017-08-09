@@ -10,8 +10,8 @@ Optimizers currently include:
 5. Adadelta
 6. RMSprop
 7. Adam
-
-TODO: Adamax, Nadam
+8. Adamax
+9. Nadam
 
 
 ## Usage

@@ -353,18 +353,171 @@ class Adam(BaseOptimizer):
         return update
 
 
+class Adamax(BaseOptimizer):
+    """
+    Adamax optimizer.
+
+    This is a variant of the Adam optimizer, based on the infinity norm (from
+    Section 7 in the Adam paper).
+    Default parameters follow those provided in the original paper.
+
+    Liam Cattell -- August 2017
+
+    Parameters
+    ----------
+    fun : callable
+        Objective function
+    jac : callable
+        Jacobian (gradient) of objective function
+    lr : float, default=0.002
+        Learning rate
+    beta1 : float, default=0.9
+    beta2 : float, default=0.999
+    epsilon : float, default=1e-8
+        Fudge factor to stop divide-by-zero errors
+    decay : float, default=0.
+        Learning rate decay over each update
+    max_iter : int, default=200
+        Maximum iterations
+    tol : float, default=0.001
+        Stop iterating when change in function value is below this threshold
+    verbose : int, default=True
+        Print stuff during optimisation?
+
+    See also
+    --------
+    [Adam - A Method for Stochastic Optimization]
+    (http://arxiv.org/abs/1412.6980v8)
+    """
+    def __init__(self, fun, jac, lr=0.002, beta1=0.9, beta2=0.999, epsilon=1e-8,
+                **kwargs):
+        super().__init__(fun, jac, **kwargs)
+        self._lr = lr
+        self._beta1 = beta1
+        self._beta2 = beta2
+        self._epsilon = epsilon
+
+        # Initialise 1st and 2nd moments
+        self._m = 0.
+        self._v = 0.
+        return
+
+
+    def _get_update(self, x):
+        grad = self._jac(x)
+
+        # Modify learning rate to include bias correction
+        t = self._iteration + 1
+        lrt = self._lr * np.sqrt(1. - self._beta2**t) / (1. - self._beta1)
+
+        # 1st moment (mean)
+        self._m = self._beta1 * self._m + (1. - self._beta1) * grad
+
+        # 2nd moment (uncentred variance) -- using infinity norm
+        self._v = np.maximum(self._beta2 * self._v, np.abs(grad))
+
+        update = lrt * self._m / (self._v + self._epsilon)
+
+        return update
+
+
+class Nadam(BaseOptimizer):
+    """
+    Nadam optimizer.
+
+    Combines Nesterov momentum with the Adam optimizer.
+    Default parameters follow those provided in the original paper(s).
+
+    Liam Cattell -- August 2017
+
+    Parameters
+    ----------
+    fun : callable
+        Objective function
+    jac : callable
+        Jacobian (gradient) of objective function
+    lr : float, default=0.001
+        Learning rate
+    beta1 : float, default=0.99
+    beta2 : float, default=0.999
+    epsilon : float, default=1e-8
+        Fudge factor to stop divide-by-zero errors
+    decay : float, default=0.
+        Learning rate decay over each update
+    max_iter : int, default=200
+        Maximum iterations
+    tol : float, default=0.001
+        Stop iterating when change in function value is below this threshold
+    verbose : int, default=True
+        Print stuff during optimisation?
+
+    See also
+    --------
+    [Incorporating Nesterov Momentum into Adam]
+    (https://www.openreview.net/pdf?id=OM0jvwB8jIp57ZJjtNEZ)
+    [Adam report]
+    (http://cs229.stanford.edu/proj2015/054_report.pdf)
+    """
+    def __init__(self, fun, jac, lr=0.001, beta1=0.99, beta2=0.999,
+                epsilon=1e-8, **kwargs):
+        super().__init__(fun, jac, **kwargs)
+        self._lr = lr
+        self._beta1 = beta1
+        self._beta2 = beta2
+        self._epsilon = epsilon
+
+        # Initialise 1st and 2nd moments, and product of momentums
+        self._m = 0.
+        self._v = 0.
+        self._mom_prod = 1.
+        return
+
+
+    def _get_update(self, x):
+        t = self._iteration + 1
+
+        # Momentum at current iteration and the next iteration
+        # Uses a slowly increasing momentum (see [2] for details)
+        momentum = self._beta1 * (1. - 0.5 * 0.96**(t/250.))
+        momentum_next = self._beta1 * (1. - 0.5 * 0.96**((t+1)/250.))
+
+        # Product of all momentums up to current iteration t
+        self._mom_prod = self._mom_prod * momentum
+
+        # Product of all momentums up to the next iteration t+1
+        mom_prod_next = self._mom_prod * momentum_next
+
+        # Gradient
+        grad = self._jac(x)
+
+        # 1st moment (mean) + bias correction + Nesterov momentum
+        # See [1] for equations
+        self._m = momentum * self._m + (1. - momentum) * grad
+        m_prime = self._m / (1. - mom_prod_next)
+        grad_prime = grad / (1. - self._mom_prod)
+        m_hat = momentum_next * m_prime + (1. - momentum) * grad_prime
+
+        # 2nd moment (uncentred variance) + bias correction
+        self._v = self._beta2 * self._v + (1. - self._beta2) * grad**2
+        v_hat = self._v / (1. - self._beta2**t)
+
+        update = self._lr * m_hat / (np.sqrt(v_hat) + self._epsilon)
+
+        return update
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     from matplotlib import cm
-    from functions import rosenbrock, rosenbrock_jac, beale, beale_jac, quadratic, quadratic_jac, fun_mesh
+    from functions import beale, beale_jac, fun_mesh
 
-    x0 = np.array([-2.0, -1.])
+    x0 = np.array([1.1, 1.6])
 
-    fun = rosenbrock
-    jac = rosenbrock_jac
+    fun = beale
+    jac = beale_jac
 
-    opt = GD(fun, jac, lr=0.0001, max_iter=10000, tol=1e-8)
+    opt = Nadam(fun, jac, lr=0.01, max_iter=5000, tol=1e-8)
     opt.optimize(x0)
     print('FINAL X: ', opt.x)
 
